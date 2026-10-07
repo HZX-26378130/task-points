@@ -114,6 +114,19 @@ body.light .heatKey b.l3{background:var(--ok)}
 body.light .tip.ok{background:#e8f7ef;border-color:#9ed9bd;color:#0d6b48}
 body.light .tip.warn{background:#fdf3e0;border-color:#e8c98a;color:#8a5a10}
 body.light .tip.bad{background:#fdecee;border-color:#eaa8b0;color:#a3232f}
+/* ===== 应用内弹窗（桌面/手机通用） ===== */
+.mask{position:fixed;inset:0;background:rgba(4,7,12,.62);display:none;align-items:center;justify-content:center;padding:18px;z-index:99}
+body.light .mask{background:rgba(22,28,40,.36)}
+.modal{background:var(--card);border:1px solid var(--line);border-radius:14px;max-width:390px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.5);animation:pop .18s ease-out}
+@keyframes pop{from{transform:scale(.94);opacity:0}to{transform:scale(1);opacity:1}}
+.mHead{font-weight:600;font-size:15px;padding:14px 16px 0}
+.mBody{padding:10px 16px 14px;font-size:14px;line-height:1.75}
+.mFoot{display:flex;gap:8px;justify-content:flex-end;padding:0 16px 16px;flex-wrap:wrap}
+button.dan{background:var(--bad);border-color:var(--bad);color:#fff;font-weight:600}
+.mBody .tip{margin:0 0 10px}
+.mStat{display:flex;gap:16px;flex-wrap:wrap;margin-top:2px}
+.mStat div span{display:block;font-size:11px;color:var(--dim)}
+.mStat div b{font-size:17px}
 </style>
 </head>
 <body>
@@ -142,6 +155,13 @@ body.light .tip.bad{background:#fdecee;border-color:#eaa8b0;color:#a3232f}
     <div class="fld" style="width:96px"><span>每周积分目标</span><input id="wgoal" type="number" min="0"></div>
     <span class="unit">分</span>
     <span class="dim" id="goalTip" style="padding-bottom:8px"></span>
+  </div>
+  <div class="row" style="margin-top:10px;align-items:flex-end">
+    <div class="fld" style="width:120px"><span>每日提醒时间</span><input id="nTime" type="time"></div>
+    <label class="dim" style="display:flex;gap:5px;align-items:center;padding-bottom:9px;cursor:pointer">
+      <input id="nOn" type="checkbox" style="width:16px;height:16px;padding:0">启用系统通知</label>
+    <button onclick="notifyTest()" style="margin-bottom:6px">发送测试通知</button>
+    <span class="dim" id="nTip" style="padding-bottom:9px"></span>
   </div>
 </div>
 
@@ -234,6 +254,8 @@ body.light .tip.bad{background:#fdecee;border-color:#eaa8b0;color:#a3232f}
   </div>
 </div>
 </div>
+
+<div class="mask" id="mask"><div class="modal" id="modal"></div></div>
 
 <script>
 const KEY='task_points_v1';
@@ -433,6 +455,125 @@ function renderHeat(){
   $('#heat').innerHTML=cells.join('');
   $('#heatLbl').textContent=`${dayKey(d0)} ~ ${tk} · 共 ${cells.length} 天`;
 }
+/* ================= 应用内弹窗（桌面/手机通用，替代 confirm/alert） ================= */
+let modalRes=null;
+function uiModal(o){
+  return new Promise(res=>{
+    modalRes=res;
+    $('#modal').innerHTML=`<div class="mHead">${esc(o.title||'提示')}</div>
+      <div class="mBody">${o.html||''}</div>
+      <div class="mFoot">${o.cancel?`<button id="mNo">${esc(o.cancel)}</button>`:''}
+      <button id="mYes" class="${o.danger?'dan':'pri'}">${esc(o.ok||'确定')}</button></div>`;
+    $('#mask').style.display='flex';
+    $('#mYes').onclick=()=>closeModal(true);
+    if($('#mNo'))$('#mNo').onclick=()=>closeModal(false);
+  });
+}
+function closeModal(v){
+  $('#mask').style.display='none';
+  const f=modalRes; modalRes=null; if(f)f(v);
+}
+$('#mask').onclick=e=>{ if(e.target.id==='mask')closeModal(false) };
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&$('#mask').style.display==='flex')closeModal(false) });
+const uiAlert=(msg,o)=>uiModal(Object.assign({html:esc(msg).replace(/\n/g,'<br>'),ok:'知道了'},o||{}));
+const uiConfirm=(msg,o)=>uiModal(Object.assign({html:esc(msg).replace(/\n/g,'<br>'),cancel:'取消',ok:'确定'},o||{}));
+
+/* ================= 今日提醒弹窗（每天第一次打开） ================= */
+function cdText(ms){
+  if(ms<=0)return '已逾期';
+  const s=Math.floor(ms/1000),d=Math.floor(s/86400);
+  return (d?d+'天':'')+pad(Math.floor(s%86400/3600))+':'+pad(Math.floor(s%3600/60));
+}
+function popupBody(){
+  const g=+S.goal||0,tp=todayPts(),t=tipInfo(),wg=+S.weekGoal||0;
+  const pend=S.tasks.filter(x=>!x.done);
+  const nx=pend.filter(x=>dueOf(x)).sort((a,b)=>dueOf(a)-dueOf(b))[0];
+  return `<div class="tip ${t.c}">${t.h}</div>
+    <div class="mStat">
+      <div><span>今日积分</span><b>${tp}${g?' / '+g:''}</b></div>
+      <div><span>本周</span><b>${weekPts()}${wg?' / '+wg:''}</b></div>
+      <div><span>连续达标</span><b>${streak()} 天</b></div>
+      <div><span>未完成</span><b>${pend.length} 个</b></div>
+    </div>
+    ${nx?`<div class="dim" style="margin-top:9px">最近截止：${esc(nx.title)} · ${cdText(dueOf(nx)-Date.now())}（${fmt(dueOf(nx))}）</div>`:''}
+    <div class="dim" style="margin-top:4px">可用积分 ${bal()}${S.rewards.length?'，去奖励区看看能换什么 🎁':''}</div>`;
+}
+async function showDaily(){
+  const d=dayKey(Date.now());
+  if(S.lastPop===d)return;
+  await uiModal({title:'今日提醒',html:popupBody(),ok:'开始今天的任务'});
+  S.lastPop=d;save();
+}
+
+/* ================= 系统通知（桌面右下角 / 手机通知栏） ================= */
+const nSupport=()=>typeof Notification!=='undefined';
+function renderNotify(){
+  const on=!!(S.notify&&S.notify.on);
+  $('#nOn').checked=on;
+  $('#nTime').value=(S.notify&&S.notify.time)||'21:00';
+  $('#nTip').textContent=!nSupport()?'本浏览器不支持系统通知（iPhone 需先「添加到主屏幕」再从桌面打开）'
+    :Notification.permission==='denied'?'通知权限被拒绝：请在浏览器站点设置里允许后刷新'
+    :Notification.permission==='granted'?(on?'已开启：到点未达标时会弹通知（页面需开着或已装成 App）':'权限已允许，勾选左侧开关即生效')
+    :'勾选左侧开关后浏览器会弹出权限请求';
+}
+function fireNotify(title,body){
+  try{ new Notification(title,{body,tag:'task-points',icon:window.__icon||undefined}); }catch(e){}
+}
+window.notifyTest=async function(){
+  if(!nSupport())return uiAlert('本浏览器不支持系统通知。\niPhone 需要先「添加到主屏幕」，再从桌面图标打开才支持通知。',{title:'无法通知'});
+  if(Notification.permission!=='granted'){
+    const p=await Notification.requestPermission();
+    if(p!=='granted')return uiAlert('通知权限没有被允许。\n可点地址栏左侧的锁图标 → 通知 → 允许，然后刷新页面。',{title:'未授权'});
+  }
+  fireNotify('测试通知 ✅','系统通知工作正常，到点我会提醒你完成任务。');
+  renderNotify();
+};
+function bindNotifyUi(){
+  $('#nOn').onchange=async e=>{
+    S.notify=S.notify||{on:false,time:'21:00',lastDay:''};
+    if(e.target.checked){
+      if(!nSupport()){e.target.checked=false;renderNotify();
+        return uiAlert('本浏览器不支持系统通知。\niPhone 需先「添加到主屏幕」再从桌面打开。',{title:'无法通知'})}
+      if(Notification.permission!=='granted'){
+        const p=await Notification.requestPermission();
+        if(p!=='granted'){e.target.checked=false;renderNotify();
+          return uiAlert('通知权限没有被允许，无法开启。',{title:'未授权'})}
+      }
+      S.notify.on=true;
+    } else S.notify.on=false;
+    save();renderNotify();
+  };
+  $('#nTime').onchange=e=>{
+    S.notify=S.notify||{on:false,time:'21:00',lastDay:''};
+    S.notify.time=e.target.value||'21:00';
+    save();renderNotify();
+  };
+}
+function notifLoop(){
+  if(!nSupport()||!S.notify||!S.notify.on||Notification.permission!=='granted')return;
+  const now=Date.now(),g=+S.goal||0;
+  // 1) 每日到点提醒：当天只发一次，且仅在还没达标时
+  const [h,mi]=(S.notify.time||'21:00').split(':').map(Number);
+  const when=new Date(); when.setHours(h,mi,0,0);
+  const dk=dayKey(now);
+  if(g>0&&todayPts()<g&&now>=when.getTime()&&S.notify.lastDay!==dk){
+    fireNotify('今天还差 '+(g-todayPts())+' 分 ⚠️',
+      '连续达标 '+streak()+' 天别断在这里（今日 '+todayPts()+'/'+g+'）。');
+    S.notify.lastDay=dk;save();
+  }
+  // 2) 任务快到截止（30 分钟内），每个截止时间只提醒一次
+  S.tasks.forEach(t=>{
+    if(t.done)return;
+    const dt=dueOf(t); if(!dt)return;
+    const left=dt-now;
+    if(left>0&&left<=1800000&&t.nf!==dt){
+      t.nf=dt;save();
+      fireNotify('「'+t.title+'」还有 '+Math.max(1,Math.round(left/60000))+' 分钟 ⏰',
+        '完成后可得 '+t.pts+' 分，现在还有 '+bal()+' 分。');
+    }
+  });
+}
+
 function renderCatMgr(){
   $('#catList').innerHTML=S.cats.map(c=>`<button type="button" class="chip" onclick="delCat('${esc(c)}')" title="删除该分类">${esc(c)} ✕</button>`).join('')
     +`<span class="dim">共 ${S.cats.length} 个分类</span>`;
@@ -450,7 +591,7 @@ function updHint(){
       ?'每天重置：选好<b>时刻</b>后，每天按这个点倒计时；次日零点自动变回未完成，<b>已挣的积分永久保留</b>。时刻可留空，留空就只显示"每日"标记。'
       :'每周重置：选<b>星期几 + 时刻</b>（如周日 22:00）后按它倒计时；周一零点自动变回未完成，历史积分保留。';
 }
-function renderAll(){rollRepeat();renderTop();renderTip();renderChart();renderHeat();renderCatSelect();renderTasks();renderRewards();renderLog();renderCatMgr();updHint()}
+function renderAll(){rollRepeat();renderTop();renderTip();renderChart();renderHeat();renderCatSelect();renderTasks();renderRewards();renderLog();renderCatMgr();updHint();renderNotify()}
 
 window.toggle=function(id){
   const t=S.tasks.find(x=>x.id===id);if(!t)return;
@@ -458,10 +599,12 @@ window.toggle=function(id){
   else{const e={id:uid(),tid:t.id,pts:t.pts,t:Date.now(),title:t.title,cat:t.cat||'默认'};t.eid=e.id;t.done=true;t.doneAt=e.t;S.earn.push(e)}
   save();renderAll();
 };
-window.delTask=function(id){
+window.delTask=async function(id){
   const t=S.tasks.find(x=>x.id===id);if(!t)return;
-  const msg=t.done?'该任务已完成，删除后这 '+t.pts+' 分仍保留在历史中（想撤销请先取消勾选）。确定删除？':'确定删除该任务？';
-  if(!confirm(msg))return;
+  const msg=t.done
+    ? `该任务已完成，删除后这 ${t.pts} 分仍保留在历史中（想撤销请先取消勾选）。`
+    : `确认删除这个任务？`;
+  if(!await uiConfirm(msg,{title:'删除任务「'+t.title+'」',ok:'删除',danger:true}))return;
   S.tasks=S.tasks.filter(x=>x.id!==id);save();renderAll();
 };
 window.delReward=function(id){S.rewards=S.rewards.filter(x=>x.id!==id);save();renderAll()};
@@ -470,10 +613,12 @@ window.setRw=function(id,k,v){
   if(k==='period')r.period=v; else r.limit=Math.max(1,+v||1);
   save();renderAll();
 };
-window.redeem=function(id){
+window.redeem=async function(id){
   const r=S.rewards.find(x=>x.id===id);if(!r)return;
-  if(bal()<r.cost)return alert('积分不足');
-  if(r.period!=='none'&&usedOf(r)>=r.limit)return alert('已达限购上限');
+  if(bal()<r.cost)return uiAlert(`积分不足：兑换「${r.name}」需要 ${r.cost} 分，你当前只有 ${bal()} 分，还差 ${r.cost-bal()} 分。`,{title:'兑换失败'});
+  if(r.period!=='none'&&usedOf(r)>=r.limit)
+    return uiAlert(`「${r.name}」${r.period==='day'?'今日':r.period==='week'?'本周':'累计'}已兑换 ${usedOf(r)}/${r.limit} 次，已达限购上限。`,{title:'兑换失败'});
+  if(!await uiConfirm(`兑换「${r.name}」将扣除 ${r.cost} 分，兑换后余额 ${bal()-r.cost} 分。`,{title:'确认兑换',ok:'兑换'}))return;
   S.spent.push({id:uid(),rid:r.id,name:r.name,cost:r.cost,t:Date.now()});save();renderAll();
 };
 window.unspend=function(id){S.spent=S.spent.filter(x=>x.id!==id);save();renderAll()};
@@ -485,14 +630,15 @@ window.toggleMgr=function(){
 };
 window.addCat=function(){
   const i=$('#newCat'),n=i.value.trim();
-  if(!n)return alert('请先填写分类名称');
+  if(!n)return uiAlert('请先在上面填写新分类的名称，例如「阅读」。',{title:'还没填名称'});
   if(!S.cats.includes(n))S.cats.push(n);
   i.value='';save();renderAll();$('#tCat').value=n;
 };
-window.delCat=function(c){
-  if(S.cats.length<=1)return alert('至少要保留一个分类');
+window.delCat=async function(c){
+  if(S.cats.length<=1)return uiAlert('至少要保留一个分类，不能删除最后一个。',{title:'无法删除'});
   const to=S.cats.find(x=>x!==c),n=S.tasks.filter(t=>(t.cat||'默认')===c).length;
-  if(!confirm(`删除分类「${c}」？`+(n?`\n该分类下 ${n} 个任务会移到「${to}」`:'')+'\n已完成任务的历史积分不受影响。'))return;
+  const msg=`分类「${c}」将被删除。`+(n?`\n该分类下 ${n} 个任务会移到「${to}」。`:'')+'\n已完成任务的历史积分不受影响。';
+  if(!await uiConfirm(msg,{title:'删除分类',ok:'删除',danger:true}))return;
   S.cats=S.cats.filter(x=>x!==c);
   S.tasks.forEach(t=>{if((t.cat||'默认')===c)t.cat=to});
   S.earn.forEach(e=>{if(e.cat===c)e.cat=to});
@@ -511,17 +657,20 @@ window.expJson=function(){
 window.impJson=function(inp){
   const f=inp.files&&inp.files[0]; if(!f)return;
   const r=new FileReader();
-  r.onload=()=>{
+  r.onload=async()=>{
     try{
       const d=JSON.parse(String(r.result));
       if(!d||typeof d!=='object'||!Array.isArray(d.tasks)||!Array.isArray(d.rewards))throw new Error('bad');
-      if(!confirm(`导入会覆盖当前全部数据：现在是 ${S.tasks.length} 个任务、${S.earn.length} 条积分记录、${S.rewards.length} 个奖励；备份文件里是 ${d.tasks.length} 个任务、${(d.earn||[]).length} 条积分记录。确定导入？`)){inp.value='';return}
+      const ok=await uiConfirm(
+        `导入会覆盖当前全部数据：\n现在是 ${S.tasks.length} 个任务、${S.earn.length} 条积分记录、${S.rewards.length} 个奖励\n备份文件里是 ${d.tasks.length} 个任务、${(d.earn||[]).length} 条积分记录`,
+        {title:'导入备份',ok:'覆盖导入',danger:true});
+      if(!ok){inp.value='';return}
       S=Object.assign({},DEF,d);
       if(!Array.isArray(S.earn))S.earn=[];
       if(!Array.isArray(S.cats)||!S.cats.length)S.cats=DEF.cats.slice();
       S.mig=3; save(); renderAll();
-      alert('导入成功');
-    }catch(e){alert('文件格式不对，导入失败（请选择本应用导出的 .json 备份）')}
+      uiAlert('导入成功 ✅\n数据已替换为备份里的内容。',{title:'完成'});
+    }catch(e){ uiAlert('文件格式不对，导入失败。\n请选择本应用导出的 .json 备份文件。',{title:'导入失败'}) }
     inp.value='';
   };
   r.readAsText(f);
@@ -546,6 +695,7 @@ window.toggleTheme=function(){S.theme=curTheme()==='light'?'dark':'light';save()
     x.fillStyle='#4c8dff';x.fillRect(0,0,180,180);
     x.font='110px serif';x.textAlign='center';x.textBaseline='middle';x.fillText('📋',90,100);
     const icon=c.toDataURL('image/png');
+    window.__icon=icon;
     const al=document.createElement('link');al.rel='apple-touch-icon';al.href=icon;
     document.head.appendChild(al);
     const mf={name:'任务积分清单',short_name:'任务积分',start_url:'.',scope:'.',display:'standalone',
@@ -588,6 +738,11 @@ $('#wgoal').onchange=e=>{S.weekGoal=Math.max(0,+e.target.value||0);save();render
 
 renderAll();
 applyTheme();
+bindNotifyUi();
+renderNotify();
+setTimeout(showDaily,600);          // 每天第一次打开：今日提醒弹窗
+notifLoop();                        // 启动时先查一次（可能有快到截止的任务）
+setInterval(notifLoop,30000);       // 每 30 秒检查每日提醒 / 截止提醒
 let lastDay=dayKey(Date.now());
 setInterval(()=>{const d=dayKey(Date.now());if(d!==lastDay){lastDay=d;renderAll()}tick()},1000);
 </script>
