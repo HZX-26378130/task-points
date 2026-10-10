@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f1218">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="任务积分">
+<title>任务积分清单</title>
+<style>
+:root{--bg:#0f1218;--card:#181d26;--line:#2a3242;--txt:#e6ebf2;--dim:#8b96a8;--acc:#4c8dff;--ok:#37c98a;--bad:#ff5f6d}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.6 system-ui,"Microsoft YaHei",sans-serif;background:var(--bg);color:var(--txt)}
+.wrap{max-width:900px;margin:0 auto;padding:16px}
+h1{font-size:19px;margin:0 0 12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+input,select,button{font:inherit;color:var(--txt);background:#111722;border:1px solid var(--line);border-radius:8px;padding:7px 10px;outline:none}
+input:focus,select:focus{border-color:var(--acc)}
+button{cursor:pointer;background:#1f2836}
+button:hover:not(:disabled){border-color:var(--acc)}
+button:disabled,input:disabled,select:disabled{opacity:.4;cursor:not-allowed}
+button.pri{background:var(--acc);border-color:var(--acc);color:#fff}
+button.ok{background:var(--ok);border-color:var(--ok);color:#04231a;font-weight:600}
+button.del{background:transparent;border-color:transparent;color:var(--dim);padding:4px 6px}
+button.del:hover{color:var(--bad);border-color:transparent}
+button.chip{padding:3px 10px;border-radius:99px;font-size:12px;background:#111722}
+button.chip.on{background:var(--acc);border-color:var(--acc);color:#fff}
+select.mini,input.mini,button.mini{padding:2px 6px;font-size:12px;border-radius:6px}
+input.mini{width:52px}
+.big{font-size:24px;font-weight:700}
+.stat{display:flex;gap:22px;flex-wrap:wrap}
+.stat div>span{display:block;color:var(--dim);font-size:12px}
+.bar{height:8px;background:#0c1119;border-radius:99px;overflow:hidden;margin-top:8px}
+.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--acc),var(--ok));transition:width .3s}
+.barLabel{display:flex;justify-content:space-between;font-size:12px;color:var(--dim);margin-top:10px}
+.chartWrap{position:relative;margin-top:6px}
+.chart{display:flex;gap:5px;align-items:flex-end}
+.col{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0}
+.bwrap{height:108px;width:100%;background:#0c1119;border-radius:6px;display:flex;align-items:flex-end;justify-content:center}
+.bwrap i{width:64%;background:#3a5a8f;border-radius:4px 4px 0 0;transition:height .3s}
+.bwrap i.hit{background:var(--ok)}
+.bwrap i.today{box-shadow:0 0 0 1px var(--acc) inset}
+.lb{font-size:10px;color:var(--dim);white-space:nowrap;transform:scale(.92)}
+.gline{position:absolute;left:0;right:0;border-top:1px dashed var(--bad);pointer-events:none}
+.gline span{position:absolute;right:0;top:-16px;font-size:11px;color:var(--bad);background:var(--card);padding:0 4px}
+ul{list-style:none;margin:0;padding:0}
+li{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:9px 0;border-bottom:1px solid var(--line)}
+li:last-child{border-bottom:0}
+.tag{font-size:12px;padding:1px 7px;border-radius:99px;border:1px solid}
+.p1{color:#ff5f6d;border-color:#ff5f6d55}.p2{color:#ffb340;border-color:#ffb34055}.p3{color:var(--dim);border-color:#8b96a855}
+.cat{font-size:12px;padding:1px 7px;border-radius:99px;background:#243047;color:#a9bde0}
+.rep{font-size:12px;padding:1px 7px;border-radius:99px;background:#1d3a2f;color:#7fe0b0}
+.lim{font-size:12px;padding:1px 7px;border-radius:99px;background:#3a2f1d;color:#ffcf85}
+.grow{flex:1;min-width:110px}
+.dim{color:var(--dim);font-size:12px}
+.done{opacity:.45;text-decoration:line-through}
+.pts{color:var(--ok);font-weight:600}
+.hot{color:var(--bad);font-weight:600}
+.empty{color:var(--dim);padding:6px 0}
+.fld{display:flex;flex-direction:column;gap:3px}
+.fld>span{font-size:11px;color:var(--dim);line-height:1.25}
+.fld input,.fld select{width:100%}
+input[type=number]{-moz-appearance:textfield;appearance:textfield}
+input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.hint{font-size:12px;color:#8fb6ff;background:#141c2b;border-left:3px solid var(--acc);border-radius:0 6px 6px 0;padding:6px 9px;margin:2px 0 8px}
+.mgr{background:#111722;border:1px dashed var(--line);border-radius:8px;padding:10px;margin:0 0 8px}
+.mgr button.chip{margin-right:6px}
+.unit{font-size:11px;color:var(--dim);align-self:flex-end;padding-bottom:8px}
+.tip{border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:13px;border:1px solid;line-height:1.5}
+.tip.ok{background:#12261e;border-color:#2d6b50;color:#9fe7c4}
+.tip.warn{background:#2a2114;border-color:#6b522d;color:#ffd699}
+.tip.bad{background:#2a1618;border-color:#6b2d33;color:#ffb3ba}
+.heat{display:grid;grid-auto-flow:column;grid-template-rows:repeat(7,13px);gap:3px;overflow-x:auto;padding-bottom:4px}
+.heat i{width:13px;height:13px;border-radius:3px;background:#161c26;display:block}
+.heat i.l1{background:#1f4d38}
+.heat i.l2{background:#2a7a55}
+.heat i.l3{background:#37c98a}
+.heat i.today{outline:1px solid var(--acc)}
+.heatLbl{display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-top:6px;flex-wrap:wrap;gap:6px}
+.heatKey{display:inline-flex;align-items:center;gap:4px}
+.heatKey b{width:11px;height:11px;border-radius:2px;display:inline-block}
+.heatKey b.l0{background:#161c26}
+.heatKey b.l1{background:#1f4d38}
+.heatKey b.l2{background:#2a7a55}
+.heatKey b.l3{background:#37c98a}
+/* ===== 浅色主题：只覆盖颜色变量与少数写死的深色底 ===== */
+body{transition:background .25s,color .25s;padding-top:env(safe-area-inset-top)}
+body.light{--bg:#f4f6fa;--card:#fff;--line:#dfe4ee;--txt:#1c2230;--dim:#6b7688;--acc:#2f6fe4;--ok:#12a06a;--bad:#d93a4a}
+body.light input,body.light select,body.light button{background:#fff}
+body.light button{background:#eef1f7}
+body.light button.pri{background:var(--acc);color:#fff}
+body.light button.ok{background:var(--ok);border-color:var(--ok);color:#fff}
+body.light button.chip.on{background:var(--acc);color:#fff}
+body.light .bar,body.light .bwrap{background:#e9edf5}
+body.light .bwrap i{background:#9db6de}
+body.light .bwrap i.hit{background:var(--ok)}
+body.light .mgr{background:#f7f9fd}
+body.light .hint{background:#eaf1ff;color:#2b5bb5}
+body.light .cat{background:#e6eefc;color:#2f5aa8}
+body.light .rep{background:#dff5ea;color:#12684a}
+body.light .lim{background:#fdf0d8;color:#8a5c12}
+body.light .heat i.l0{background:#e9edf5}
+body.light .heat i.l1{background:#cdeadb}
+body.light .heat i.l2{background:#7fd0a8}
+body.light .heat i.l3{background:var(--ok)}
+body.light .heatKey b{outline:1px solid var(--line)}
+body.light .heatKey b.l0{background:#e9edf5}
+body.light .heatKey b.l1{background:#cdeadb}
+body.light .heatKey b.l2{background:#7fd0a8}
+body.light .heatKey b.l3{background:var(--ok)}
+body.light .tip.ok{background:#e8f7ef;border-color:#9ed9bd;color:#0d6b48}
+body.light .tip.warn{background:#fdf3e0;border-color:#e8c98a;color:#8a5a10}
+body.light .tip.bad{background:#fdecee;border-color:#eaa8b0;color:#a3232f}
+/* ===== 应用内弹窗（桌面/手机通用） ===== */
+.mask{position:fixed;inset:0;background:rgba(4,7,12,.62);display:none;align-items:center;justify-content:center;padding:18px;z-index:99}
+body.light .mask{background:rgba(22,28,40,.36)}
+.modal{background:var(--card);border:1px solid var(--line);border-radius:14px;max-width:390px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.5);animation:pop .18s ease-out}
+@keyframes pop{from{transform:scale(.94);opacity:0}to{transform:scale(1);opacity:1}}
+.mHead{font-weight:600;font-size:15px;padding:14px 16px 0}
+.mBody{padding:10px 16px 14px;font-size:14px;line-height:1.75}
+.mFoot{display:flex;gap:8px;justify-content:flex-end;padding:0 16px 16px;flex-wrap:wrap}
+button.dan{background:var(--bad);border-color:var(--bad);color:#fff;font-weight:600}
+.mBody .tip{margin:0 0 10px}
+.mStat{display:flex;gap:16px;flex-wrap:wrap;margin-top:2px}
+.mStat div span{display:block;font-size:11px;color:var(--dim)}
+.mStat div b{font-size:17px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="row" style="justify-content:space-between;align-items:center">
+  <h1 style="margin:0">📋 任务积分清单</h1>
+  <button id="themeBtn" class="mini" onclick="toggleTheme()" title="切换深色 / 浅色" style="padding:6px 10px">🌙</button>
+</div>
+<div class="tip" id="tip" style="display:none"></div>
+
+<div class="card">
+  <div class="stat">
+    <div><span>可用积分</span><b class="big" id="bal">0</b></div>
+    <div><span>今日获得</span><b class="big" id="todayV">0</b></div>
+    <div><span>本周获得</span><b class="big" id="weekV">0</b></div>
+    <div><span>连续达标</span><b class="big" id="streakV">0</b></div>
+    <div><span>累计获得 / 已兑换</span><b class="big" id="tot" style="font-size:16px">0 / 0</b></div>
+  </div>
+  <div class="barLabel"><span>今日进度</span><span id="todayTip"></span></div>
+  <div class="bar"><i id="barI"></i></div>
+  <div class="barLabel"><span>本周进度</span><span id="weekTip"></span></div>
+  <div class="bar"><i id="wbarI"></i></div>
+  <div class="row" style="margin-top:12px;align-items:flex-end">
+    <div class="fld" style="width:96px"><span>每日积分要求</span><input id="goal" type="number" min="0"></div>
+    <span class="unit">分</span>
+    <div class="fld" style="width:96px"><span>每周积分目标</span><input id="wgoal" type="number" min="0"></div>
+    <span class="unit">分</span>
+    <span class="dim" id="goalTip" style="padding-bottom:8px"></span>
+  </div>
+  <div class="row" style="margin-top:10px;align-items:flex-end">
+    <div class="fld" style="width:120px"><span>每日提醒时间</span><input id="nTime" type="time"></div>
+    <label class="dim" style="display:flex;gap:5px;align-items:center;padding-bottom:9px;cursor:pointer">
+      <input id="nOn" type="checkbox" style="width:16px;height:16px;padding:0">启用系统通知</label>
+    <button onclick="notifyTest()" style="margin-bottom:6px">发送测试通知</button>
+    <span class="dim" id="nTip" style="padding-bottom:9px"></span>
+  </div>
+</div>
+
+<div class="card">
+  <b>最近 14 天积分</b>
+  <div class="chartWrap">
+    <div class="chart" id="chart"></div>
+    <div class="gline" id="gline" style="display:none"><span id="glabel"></span></div>
+  </div>
+  <div class="dim" id="catStat" style="margin-top:8px"></div>
+</div>
+
+<div class="card">
+  <b>打卡热力图（近 16 周）</b>
+  <div class="heat" id="heat"></div>
+  <div class="heatLbl">
+    <span id="heatLbl"></span>
+    <span class="heatKey"><b class="l0"></b>0 <b class="l1"></b>未过半 <b class="l2"></b>过半 <b class="l3"></b>达标</span>
+  </div>
+</div>
+
+<div class="card">
+  <b>任务</b>
+  <form id="tf" class="row" style="margin:10px 0;align-items:flex-end">
+    <div class="fld" style="flex:1;min-width:170px"><span>任务内容</span>
+      <input id="tTitle" placeholder="如：背 50 个单词" required></div>
+    <div class="fld" style="width:120px"><span>分类</span>
+      <div class="row" style="gap:4px;flex-wrap:nowrap">
+        <select id="tCat"></select>
+        <button type="button" class="mini" onclick="toggleMgr()" title="添加 / 删除分类" style="padding:7px 8px">⚙</button>
+      </div></div>
+    <div class="fld" style="width:104px"><span>优先级</span>
+      <select id="tPri"><option value="1">高</option><option value="2" selected>中</option><option value="3">低</option></select></div>
+    <div class="fld" style="width:112px"><span>重复方式</span>
+      <select id="tRep"><option value="none">只做一次</option><option value="day">每天重置</option><option value="week">每周重置</option></select></div>
+    <div class="fld" style="width:186px"><span id="dueLb">截止时间（可留空）</span>
+      <div class="row" style="gap:4px;flex-wrap:nowrap">
+        <input id="tDue" type="datetime-local">
+        <input id="tTime" type="time" style="display:none">
+        <select id="tWeek" style="display:none;width:84px">
+          <option value="0">周一</option><option value="1">周二</option><option value="2">周三</option><option value="3">周四</option>
+          <option value="4">周五</option><option value="5">周六</option><option value="6">周日</option></select>
+      </div></div>
+    <div class="fld" style="width:96px"><span>完成得多少分</span>
+      <input id="tPts" type="number" value="5" min="0"></div>
+    <button class="pri" style="height:37px">添加任务</button>
+  </form>
+  <div class="hint" id="hint"></div>
+  <div class="mgr" id="catMgr" style="display:none">
+    <div class="row" style="margin-bottom:8px"><b style="font-size:13px">分类管理</b>
+      <input id="newCat" placeholder="新分类名称，如：阅读" style="width:160px">
+      <button type="button" class="pri" onclick="addCat()">添加分类</button>
+      <span class="dim">点下方分类上的 ✕ 删除；该分类下的任务会自动移到剩下的第一个分类</span>
+    </div>
+    <div class="row" id="catList"></div>
+  </div>
+  <div class="row" id="filters" style="margin-bottom:6px"></div>
+  <div class="dim" id="doneBar" style="display:none;margin:2px 0 6px"></div>
+  <ul id="tl"></ul>
+</div>
+
+<div class="card">
+  <b>奖励兑换</b>
+  <form id="rf" class="row" style="margin:10px 0;align-items:flex-end">
+    <div class="fld" style="flex:1;min-width:150px"><span>奖励名称</span>
+      <input id="rName" placeholder="如：看一集剧" required></div>
+    <div class="fld" style="width:104px"><span>需要多少分</span>
+      <input id="rCost" type="number" value="20" min="1"></div>
+    <div class="fld" style="width:112px"><span>限购周期</span>
+      <select id="rPeriod"><option value="none">不限购</option><option value="day">每天限</option><option value="week">每周限</option><option value="total">总共限</option></select></div>
+    <div class="fld" style="width:92px"><span>限购次数</span>
+      <input id="rLimit" type="number" value="1" min="1" disabled></div>
+    <button class="pri" style="height:37px">添加奖励</button>
+  </form>
+  <div class="hint">限购次数只在选了周期后生效：如"每天限 1 次"，今天兑过就变灰，明天自动恢复。</div>
+  <ul id="rl"></ul>
+</div>
+
+<div class="card">
+  <b>记录</b>
+  <ul id="log"></ul>
+</div>
+
+<div class="card">
+  <b>数据备份</b>
+  <div class="row" style="margin-top:8px">
+    <button class="pri" onclick="expJson()">导出 JSON 备份</button>
+    <button onclick="document.getElementById('impFile').click()">导入 JSON 备份</button>
+    <button onclick="simulateNextDay()" title="验证每日/每周任务的重置是否正常">测试：模拟跨天</button>
+    <input id="impFile" type="file" accept=".json,application/json" hidden onchange="impJson(this)">
+    <span class="dim">数据只保存在这个浏览器里：换电脑、换浏览器、清缓存之前请先导出；导入会覆盖当前数据。</span>
+  </div>
+</div>
+</div>
+
+<div class="mask" id="mask"><div class="modal" id="modal"></div></div>
+
+<script>
+const KEY='task_points_v1';
+const DEF={tasks:[],rewards:[],spent:[],earn:[],cats:['学习','工作','生活','运动'],goal:30,weekGoal:150,filter:'全部'};
+let S=load();
+function load(){
+  let d;try{d=JSON.parse(localStorage.getItem(KEY))||{}}catch(e){d={}}
+  const s=Object.assign({},DEF,d);
+  if(!Array.isArray(s.earn))s.earn=[];
+  if(!Array.isArray(s.cats)||!s.cats.length)s.cats=DEF.cats.slice();
+  if(d.mig!==3){ // 旧数据迁移：把已完成任务的积分抽出为独立历史记录
+    s.tasks.forEach(t=>{t.repeat=t.repeat||'none'});
+    s.tasks.filter(t=>t.done&&t.doneAt&&!t.eid).forEach(t=>{
+      const e={id:Math.random().toString(36).slice(2,10),tid:t.id,pts:t.pts,t:t.doneAt,title:t.title,cat:t.cat||'默认'};
+      t.eid=e.id;s.earn.push(e);
+    });
+    s.spent.forEach(x=>{x.id=x.id||Math.random().toString(36).slice(2,10)});
+    s.mig=3;
+  }
+  return s;
+}
+function save(){localStorage.setItem(KEY,JSON.stringify(S))}
+const $=s=>document.querySelector(s);
+const uid=()=>Math.random().toString(36).slice(2,10);
+const dayKey=ts=>new Date(ts).toLocaleDateString('sv');
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const pad=n=>String(n).padStart(2,'0');
+const fmt=ts=>new Date(ts).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+const earned=()=>S.earn.reduce((a,e)=>a+e.pts,0);
+const spentAll=()=>S.spent.reduce((a,s)=>a+s.cost,0);
+const bal=()=>earned()-spentAll();
+const dayMap=()=>{const m={};S.earn.forEach(e=>{const k=dayKey(e.t);m[k]=(m[k]||0)+e.pts});return m};
+const todayPts=()=>dayMap()[dayKey(Date.now())]||0;
+function weekStart(){const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-((d.getDay()+6)%7));return d}
+const weekPts=()=>{const ws=weekStart().getTime();return S.earn.filter(e=>e.t>=ws).reduce((a,e)=>a+e.pts,0)};
+function streak(){
+  const g=+S.goal||0; if(g<=0) return 0;
+  const m=dayMap(),d=new Date(); let n=0;
+  if((m[dayKey(d)]||0)<g) d.setDate(d.getDate()-1);
+  while((m[dayKey(d)]||0)>=g){n++;d.setDate(d.getDate()-1);if(n>3650)break}
+  return n;
+}
+/* ---- 重复任务 ---- */
+const pkOf=t=>t.repeat==='day'?dayKey(Date.now()):dayKey(weekStart().getTime());
+function dueOf(t){
+  if(t.repeat==='none'||!t.repeat) return t.due??null;
+  if(!t.dueT) return null;
+  const [h,mi]=t.dueT.split(':').map(Number),d=new Date();
+  if(t.repeat==='day'){d.setHours(h,mi,0,0);return d.getTime()}
+  d.setDate(d.getDate()+((t.dueW??1)-((d.getDay()+6)%7)));d.setHours(h,mi,0,0);return d.getTime();
+}
+function rollRepeat(){
+  let ch=false;
+  S.tasks.forEach(t=>{
+    if(t.repeat==='day'||t.repeat==='week'){
+      const k=pkOf(t);
+      if(t.pk!==k){ if(t.done){t.done=false;t.doneAt=null;t.eid=null} t.pk=k; ch=true }
+    }
+  });
+  if(ch)save();
+}
+/* ---- 统计与渲染 ---- */
+function cd(ms){
+  if(ms<=0) return '<span class="hot">已逾期</span>';
+  const s=Math.floor(ms/1000),d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60),x=s%60;
+  if(d) return `<span class="hot">剩余 ${d}天 ${pad(h)}:${pad(m)}:${pad(x)}</span>`;
+  return `<span>剩余 ${pad(h)}:${pad(m)}:${pad(x)}</span>`;
+}
+function tick(){const now=Date.now();document.querySelectorAll('.cd').forEach(el=>{const d=el.dataset.due;if(d)el.innerHTML=cd(+d-now)})}
+
+function renderTop(){
+  const g=+S.goal||0,wg=+S.weekGoal||0,tp=todayPts(),wp=weekPts();
+  $('#bal').textContent=bal();
+  $('#todayV').textContent=tp;
+  $('#weekV').textContent=wp;
+  $('#streakV').textContent=streak()+' 天';
+  $('#tot').textContent=earned()+' / '+spentAll();
+  $('#barI').style.width=(g?Math.min(100,tp/g*100):0)+'%';
+  $('#wbarI').style.width=(wg?Math.min(100,wp/wg*100):0)+'%';
+  $('#todayTip').textContent=g?`${tp} / ${g}`+(tp>=g?' ✅':`（还差 ${g-tp}）`):'未设置';
+  $('#weekTip').textContent=wg?`${wp} / ${wg}`+(wp>=wg?' ✅':`（还差 ${wg-wp}）`):'未设置';
+  $('#goalTip').textContent=g?`已连续 ${streak()} 天达标`:'设目标后开始统计连续达标';
+  $('#goal').value=S.goal;
+  $('#wgoal').value=S.weekGoal;
+}
+function renderChart(){
+  const m=dayMap(),g=+S.goal||0,days=[],tk=dayKey(Date.now());
+  for(let i=13;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);const k=dayKey(d);days.push({k,v:m[k]||0,lb:(d.getMonth()+1)+'/'+d.getDate(),tk:k===tk})}
+  const max=Math.max(g,1,...days.map(x=>x.v));
+  $('#chart').innerHTML=days.map(x=>`<div class="col" title="${x.k}：${x.v} 分${g?`（目标 ${g}，${x.v>=g?'已达标':'未达标'}）`:''}">
+    <div class="bwrap"><i class="${x.v>=g&&g>0?'hit':''} ${x.tk?'today':''}" style="height:${x.v?Math.max(4,x.v/max*100):0}%"></i></div>
+    <span class="lb">${x.lb}</span></div>`).join('');
+  const gl=$('#gline');
+  if(g>0){gl.style.display='block';gl.style.bottom=(20+g/max*108)+'px';$('#glabel').textContent='目标 '+g}
+  else gl.style.display='none';
+  const cats={};S.earn.forEach(e=>{if(e.t>=weekStart().getTime()){const c=e.cat||'默认';cats[c]=(cats[c]||0)+e.pts}});
+  const ks=Object.keys(cats).sort((a,b)=>cats[b]-cats[a]);
+  $('#catStat').textContent=ks.length?'本周分类积分：'+ks.map(k=>`${k} ${cats[k]}`).join(' · '):'本周暂无完成记录';
+}
+function renderCatSelect(){
+  const cur=$('#tCat').value,list=S.cats.length?S.cats:['默认'];
+  $('#tCat').innerHTML=list.map(c=>`<option>${esc(c)}</option>`).join('');
+  $('#tCat').value=list.includes(cur)?cur:list[0];
+}
+function renderTasks(){
+  const f=S.filter||'全部';
+  const isRep=t=>t.repeat==='day'||t.repeat==='week';
+  const inCat=t=>f==='全部'||(t.cat||'默认')===f;
+  // 重复任务本周期完成后自动收起（下个周期重置时再出现）
+  const tucked=S.tasks.filter(t=>inCat(t)&&isRep(t)&&t.done);
+  const arr=S.tasks.filter(t=>inCat(t)&&!(isRep(t)&&t.done&&!S.showDone))
+    .sort((a,b)=>(a.done-b.done)||(a.pri-b.pri)||((dueOf(a)??9e15)-(dueOf(b)??9e15)));
+  const bar=$('#doneBar');
+  if(tucked.length){
+    const allDay=tucked.every(t=>t.repeat==='day'), allWeek=tucked.every(t=>t.repeat==='week');
+    const when=allDay?'明天 00:00':allWeek?'下周一 00:00':'到点';
+    bar.style.display='';
+    bar.innerHTML=`✅ 本周期已完成 <b>${tucked.length}</b> 项重复任务，已从列表收起（${when} 自动重新出现）
+      <button class="mini" onclick="toggleDone()">${S.showDone?'收起':'展开/撤销'}</button>`;
+  }else{ bar.style.display='none'; bar.innerHTML=''; }
+  $('#filters').innerHTML=['全部',...S.cats].map(c=>`<button class="chip ${c===f?'on':''}" onclick="setFilter('${esc(c)}')">${esc(c)}</button>`).join('');
+  $('#tl').innerHTML=arr.length?arr.map(t=>{
+    const due=dueOf(t);
+    return `<li>
+    <input type="checkbox" ${t.done?'checked':''} onchange="toggle('${t.id}')" style="width:18px;height:18px;accent-color:#37c98a;padding:0">
+    <div class="grow ${t.done?'done':''}">
+      <div>${esc(t.title)}</div>
+      <div class="dim"><span class="tag p${t.pri}">${['','高','中','低'][t.pri]}</span>
+      <span class="cat">${esc(t.cat||'默认')}</span>
+      ${t.repeat!=='none'?`<span class="rep">🔁${t.repeat==='day'?'每日':'每周'}${t.dueT?' '+t.dueT:''}</span>`:''}
+      <span class="pts">+${t.pts}分</span>
+      ${t.done?'<span class="dim">已完成</span>':(due?`<span class="cd" data-due="${due}"></span> <span class="dim">· ${fmt(due)}</span>`:'')}</div>
+    </div>
+    <button class="del" onclick="delTask('${t.id}')" title="删除">✕</button></li>`}).join('')
+    :'<div class="empty">当前分类下没有任务</div>';
+  tick();
+}
+const inPeriod=(t,p)=>{const d=new Date(t),now=new Date();
+  if(p==='day')return dayKey(t)===dayKey(Date.now());
+  if(p==='week')return t>=weekStart().getTime();
+  return true;};
+const usedOf=r=>S.spent.filter(s=>s.rid===r.id&&(r.period==='none'||inPeriod(s.t,r.period))).length;
+function renderRewards(){
+  const b=bal();
+  $('#rl').innerHTML=S.rewards.length?S.rewards.map(r=>{
+    const used=usedOf(r),limited=r.period!=='none',left=limited?Math.max(0,r.limit-used):Infinity;
+    const can=b>=r.cost&&(!limited||left>0);
+    const why=limited&&left<=0?`${r.period==='day'?'今日':r.period==='week'?'本周':'累计'}已达上限`:b<r.cost?'积分不足':'';
+    return `<li>
+    <div class="grow">🎁 ${esc(r.name)} <span class="pts">${r.cost} 分</span></div>
+    <select class="mini" onchange="setRw('${r.id}','period',this.value)" title="限购周期">
+      <option value="none"${r.period==='none'?' selected':''}>不限购</option>
+      <option value="day"${r.period==='day'?' selected':''}>每日限</option>
+      <option value="week"${r.period==='week'?' selected':''}>每周限</option>
+      <option value="total"${r.period==='total'?' selected':''}>总共限</option>
+    </select>
+    <input class="mini" type="number" min="1" value="${r.limit||1}" ${limited?'':'disabled'} onchange="setRw('${r.id}','limit',this.value)" title="限购次数">
+    <span class="${limited&&left<=0?'hot':'dim'}">已兑 ${used}${limited?'/'+r.limit:'/∞'}</span>
+    <button class="${can?'ok':''}" ${can?'':'disabled'} title="${why}" onclick="redeem('${r.id}')">兑换</button>
+    <button class="del" onclick="delReward('${r.id}')">✕</button></li>`}).join('')
+    :'<div class="empty">还没有奖励，添加一个吧</div>';
+}
+function renderLog(){
+  const items=[];
+  S.earn.forEach(e=>items.push({t:e.t,h:`✅ 完成「${esc(e.title)}」 <span class="cat">${esc(e.cat||'默认')}</span> <b class="pts">+${e.pts}</b>`}));
+  S.spent.forEach(s=>items.push({t:s.t,h:`🎁 兑换「${esc(s.name)}」 <b class="hot">-${s.cost}</b> <button class="del" onclick="unspend('${s.id}')">撤销</button>`}));
+  items.sort((a,b)=>b.t-a.t);
+  $('#log').innerHTML=items.length?items.slice(0,60).map(i=>`<li><div class="grow">${i.h}</div><span class="dim">${fmt(i.t)}</span></li>`).join('')
+    :'<div class="empty">暂无记录</div>';
+}
+function runsOf(){ // 所有"达标日"按连续天数分组
+  const g=+S.goal||0; if(g<=0) return [];
+  const m=dayMap(),ks=Object.keys(m).sort(); if(!ks.length) return [];
+  const D=86400000,out=[]; let cur=null;
+  const t0=new Date(ks[0]+'T00:00:00').getTime(), t1=new Date(dayKey(Date.now())+'T00:00:00').getTime();
+  for(let t=t0;t<=t1;t+=D){
+    const k=new Date(t).toLocaleDateString('sv');
+    if((m[k]||0)>=g){
+      if(cur&&cur.end===t-D){cur.end=t;cur.n++} else {cur={start:t,end:t,n:1};out.push(cur)}
+    }
+  }
+  return out;
+}
+function tipInfo(){
+  const g=+S.goal||0,tp=todayPts(),tk=new Date(dayKey(Date.now())+'T00:00:00').getTime(),D=86400000;
+  if(g<=0) return {c:'warn',h:'还没设置<b>每日积分要求</b>：设置后这里会显示连续达标天数，快中断时提前提醒你。'};
+  const rs=runsOf(),last=rs[rs.length-1];
+  if(last&&last.end===tk) return {c:'ok',h:`✅ 今日已达标（${tp}/${g} 分），已连续 <b>${last.n}</b> 天。`};
+  if(last&&last.end===tk-D) return {c:'warn',h:`⚠️ 已连续 <b>${last.n}</b> 天达标，今天还差 <b>${g-tp}</b> 分（${tp}/${g}）。今天不完成，连击将在 24:00 中断。`};
+  if(last) return {c:'bad',h:`💔 连续达标中断了：上次连续 <b>${last.n}</b> 天，止于 ${new Date(last.end).toLocaleDateString('zh-CN',{month:'2-digit',day:'2-digit'})}。今天拿满 ${g} 分即可重新开始。`};
+  return {c:'warn',h:`今天还没有积分（0/${g}）：完成任意任务，就开始第一天的连续达标。`};
+}
+function renderTip(){
+  const t=tipInfo();
+  const el=$('#tip');
+  el.className='tip '+t.c; el.innerHTML=t.h; el.style.display='block';
+  document.title=(t.c==='ok'?'✅ ':(t.c==='bad'?'💔 ':'⚠️ '))+'任务积分清单';
+}
+function renderHeat(){
+  const m=dayMap(),g=+S.goal||0,tk=dayKey(Date.now());
+  const d0=weekStart(); d0.setDate(d0.getDate()-7*15);
+  const cells=[]; const cur=new Date(d0);
+  while(cur.getTime()<=Date.now()){
+    const k=dayKey(cur),v=m[k]||0;
+    const lv=!v?0:(g>=1?(v>=g?3:(v>=g/2?2:1)):3);
+    cells.push(`<i class="l${lv}${k===tk?' today':''}" title="${k}：${v} 分${g?`（目标 ${g}，${v>=g?'已达标':'未达标'}）`:''}"></i>`);
+    cur.setDate(cur.getDate()+1);
+  }
+  $('#heat').innerHTML=cells.join('');
+  $('#heatLbl').textContent=`${dayKey(d0)} ~ ${tk} · 共 ${cells.length} 天`;
+}
+/* ================= 应用内弹窗（桌面/手机通用，替代 confirm/alert） ================= */
+let modalRes=null;
+function uiModal(o){
+  return new Promise(res=>{
+    modalRes=res;
+    $('#modal').innerHTML=`<div class="mHead">${esc(o.title||'提示')}</div>
+      <div class="mBody">${o.html||''}</div>
+      <div class="mFoot">${o.cancel?`<button id="mNo">${esc(o.cancel)}</button>`:''}
+      <button id="mYes" class="${o.danger?'dan':'pri'}">${esc(o.ok||'确定')}</button></div>`;
+    $('#mask').style.display='flex';
+    $('#mYes').onclick=()=>closeModal(true);
+    if($('#mNo'))$('#mNo').onclick=()=>closeModal(false);
+  });
+}
+function closeModal(v){
+  $('#mask').style.display='none';
+  const f=modalRes; modalRes=null; if(f)f(v);
+}
+$('#mask').onclick=e=>{ if(e.target.id==='mask')closeModal(false) };
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&$('#mask').style.display==='flex')closeModal(false) });
+const uiAlert=(msg,o)=>uiModal(Object.assign({html:esc(msg).replace(/\n/g,'<br>'),ok:'知道了'},o||{}));
+const uiConfirm=(msg,o)=>uiModal(Object.assign({html:esc(msg).replace(/\n/g,'<br>'),cancel:'取消',ok:'确定'},o||{}));
+
+/* ================= 今日提醒弹窗（每天第一次打开） ================= */
+function cdText(ms){
+  if(ms<=0)return '已逾期';
+  const s=Math.floor(ms/1000),d=Math.floor(s/86400);
+  return (d?d+'天':'')+pad(Math.floor(s%86400/3600))+':'+pad(Math.floor(s%3600/60));
+}
+function popupBody(){
+  const g=+S.goal||0,tp=todayPts(),t=tipInfo(),wg=+S.weekGoal||0;
+  const pend=S.tasks.filter(x=>!x.done);
+  const nx=pend.filter(x=>dueOf(x)).sort((a,b)=>dueOf(a)-dueOf(b))[0];
+  return `<div class="tip ${t.c}">${t.h}</div>
+    <div class="mStat">
+      <div><span>今日积分</span><b>${tp}${g?' / '+g:''}</b></div>
+      <div><span>本周</span><b>${weekPts()}${wg?' / '+wg:''}</b></div>
+      <div><span>连续达标</span><b>${streak()} 天</b></div>
+      <div><span>未完成</span><b>${pend.length} 个</b></div>
+    </div>
+    ${nx?`<div class="dim" style="margin-top:9px">最近截止：${esc(nx.title)} · ${cdText(dueOf(nx)-Date.now())}（${fmt(dueOf(nx))}）</div>`:''}
+    <div class="dim" style="margin-top:4px">可用积分 ${bal()}${S.rewards.length?'，去奖励区看看能换什么 🎁':''}</div>`;
+}
+async function showDaily(){
+  const d=dayKey(Date.now());
+  if(S.lastPop===d)return;
+  await uiModal({title:'今日提醒',html:popupBody(),ok:'开始今天的任务'});
+  S.lastPop=d;save();
+}
+
+/* ================= 系统通知（桌面右下角 / 手机通知栏） ================= */
+const nSupport=()=>typeof Notification!=='undefined';
+function renderNotify(){
+  const on=!!(S.notify&&S.notify.on);
+  $('#nOn').checked=on;
+  $('#nTime').value=(S.notify&&S.notify.time)||'21:00';
+  $('#nTip').textContent=!nSupport()?'本浏览器不支持系统通知（iPhone 需先「添加到主屏幕」再从桌面打开）'
+    :Notification.permission==='denied'?'通知权限被拒绝：请在浏览器站点设置里允许后刷新'
+    :Notification.permission==='granted'?(on?'已开启：到点未达标时会弹通知（页面需开着或已装成 App）':'权限已允许，勾选左侧开关即生效')
+    :'勾选左侧开关后浏览器会弹出权限请求';
+}
+function fireNotify(title,body){
+  try{ new Notification(title,{body,tag:'task-points',icon:window.__icon||undefined}); }catch(e){}
+}
+window.notifyTest=async function(){
+  if(!nSupport())return uiAlert('本浏览器不支持系统通知。\niPhone 需要先「添加到主屏幕」，再从桌面图标打开才支持通知。',{title:'无法通知'});
+  if(Notification.permission!=='granted'){
+    const p=await Notification.requestPermission();
+    if(p!=='granted')return uiAlert('通知权限没有被允许。\n可点地址栏左侧的锁图标 → 通知 → 允许，然后刷新页面。',{title:'未授权'});
+  }
+  fireNotify('测试通知 ✅','系统通知工作正常，到点我会提醒你完成任务。');
+  renderNotify();
+};
+function bindNotifyUi(){
+  $('#nOn').onchange=async e=>{
+    S.notify=S.notify||{on:false,time:'21:00',lastDay:''};
+    if(e.target.checked){
+      if(!nSupport()){e.target.checked=false;renderNotify();
+        return uiAlert('本浏览器不支持系统通知。\niPhone 需先「添加到主屏幕」再从桌面打开。',{title:'无法通知'})}
+      if(Notification.permission!=='granted'){
+        const p=await Notification.requestPermission();
+        if(p!=='granted'){e.target.checked=false;renderNotify();
+          return uiAlert('通知权限没有被允许，无法开启。',{title:'未授权'})}
+      }
+      S.notify.on=true;
+    } else S.notify.on=false;
+    save();renderNotify();
+  };
+  $('#nTime').onchange=e=>{
+    S.notify=S.notify||{on:false,time:'21:00',lastDay:''};
+    S.notify.time=e.target.value||'21:00';
+    save();renderNotify();
+  };
+}
+function notifLoop(){
+  if(!nSupport()||!S.notify||!S.notify.on||Notification.permission!=='granted')return;
+  const now=Date.now(),g=+S.goal||0;
+  // 1) 每日到点提醒：当天只发一次，且仅在还没达标时
+  const [h,mi]=(S.notify.time||'21:00').split(':').map(Number);
+  const when=new Date(); when.setHours(h,mi,0,0);
+  const dk=dayKey(now);
+  if(g>0&&todayPts()<g&&now>=when.getTime()&&S.notify.lastDay!==dk){
+    fireNotify('今天还差 '+(g-todayPts())+' 分 ⚠️',
+      '连续达标 '+streak()+' 天别断在这里（今日 '+todayPts()+'/'+g+'）。');
+    S.notify.lastDay=dk;save();
+  }
+  // 2) 任务快到截止（30 分钟内），每个截止时间只提醒一次
+  S.tasks.forEach(t=>{
+    if(t.done)return;
+    const dt=dueOf(t); if(!dt)return;
+    const left=dt-now;
+    if(left>0&&left<=1800000&&t.nf!==dt){
+      t.nf=dt;save();
+      fireNotify('「'+t.title+'」还有 '+Math.max(1,Math.round(left/60000))+' 分钟 ⏰',
+        '完成后可得 '+t.pts+' 分，现在还有 '+bal()+' 分。');
+    }
+  });
+}
+
+function renderCatMgr(){
+  $('#catList').innerHTML=S.cats.map(c=>`<button type="button" class="chip" onclick="delCat('${esc(c)}')" title="删除该分类">${esc(c)} ✕</button>`).join('')
+    +`<span class="dim">共 ${S.cats.length} 个分类</span>`;
+}
+function updHint(){
+  const rep=$('#tRep').value;
+  const once=rep==='none';
+  $('#tDue').style.display=once?'':'none';
+  $('#tTime').style.display=once?'none':'';
+  $('#tWeek').style.display=rep==='week'?'':'none';
+  $('#dueLb').textContent=once?'截止时间（可留空）':rep==='day'?'每天几点前完成':'每周哪天、几点前完成';
+  $('#hint').innerHTML=once
+    ?'任务只做一次：填了截止时间就会显示<b>实时倒计时</b>，逾期标红；<b>完成得多少分</b>＝勾选完成时进账的分数。'
+    :rep==='day'
+      ?'每天重置：选好<b>时刻</b>后，每天按这个点倒计时；次日零点自动变回未完成，<b>已挣的积分永久保留</b>。时刻可留空，留空就只显示"每日"标记。'
+      :'每周重置：选<b>星期几 + 时刻</b>（如周日 22:00）后按它倒计时；周一零点自动变回未完成，历史积分保留。';
+}
+function renderAll(){rollRepeat();renderTop();renderTip();renderChart();renderHeat();renderCatSelect();renderTasks();renderRewards();renderLog();renderCatMgr();updHint();renderNotify()}
+
+window.toggle=function(id){
+  const t=S.tasks.find(x=>x.id===id);if(!t)return;
+  if(t.done){S.earn=S.earn.filter(e=>e.id!==t.eid);t.eid=null;t.done=false;t.doneAt=null}
+  else{const e={id:uid(),tid:t.id,pts:t.pts,t:Date.now(),title:t.title,cat:t.cat||'默认'};t.eid=e.id;t.done=true;t.doneAt=e.t;S.earn.push(e)}
+  save();renderAll();
+};
+window.delTask=async function(id){
+  const t=S.tasks.find(x=>x.id===id);if(!t)return;
+  const msg=t.done
+    ? `该任务已完成，删除后这 ${t.pts} 分仍保留在历史中（想撤销请先取消勾选）。`
+    : `确认删除这个任务？`;
+  if(!await uiConfirm(msg,{title:'删除任务「'+t.title+'」',ok:'删除',danger:true}))return;
+  S.tasks=S.tasks.filter(x=>x.id!==id);save();renderAll();
+};
+window.delReward=function(id){S.rewards=S.rewards.filter(x=>x.id!==id);save();renderAll()};
+window.setRw=function(id,k,v){
+  const r=S.rewards.find(x=>x.id===id);if(!r)return;
+  if(k==='period')r.period=v; else r.limit=Math.max(1,+v||1);
+  save();renderAll();
+};
+window.redeem=async function(id){
+  const r=S.rewards.find(x=>x.id===id);if(!r)return;
+  if(bal()<r.cost)return uiAlert(`积分不足：兑换「${r.name}」需要 ${r.cost} 分，你当前只有 ${bal()} 分，还差 ${r.cost-bal()} 分。`,{title:'兑换失败'});
+  if(r.period!=='none'&&usedOf(r)>=r.limit)
+    return uiAlert(`「${r.name}」${r.period==='day'?'今日':r.period==='week'?'本周':'累计'}已兑换 ${usedOf(r)}/${r.limit} 次，已达限购上限。`,{title:'兑换失败'});
+  if(!await uiConfirm(`兑换「${r.name}」将扣除 ${r.cost} 分，兑换后余额 ${bal()-r.cost} 分。`,{title:'确认兑换',ok:'兑换'}))return;
+  S.spent.push({id:uid(),rid:r.id,name:r.name,cost:r.cost,t:Date.now()});save();renderAll();
+};
+window.unspend=function(id){S.spent=S.spent.filter(x=>x.id!==id);save();renderAll()};
+window.setFilter=function(c){S.filter=c;save();renderTasks()};
+window.toggleDone=function(){S.showDone=!S.showDone;save();renderTasks()};
+window.simulateNextDay=async function(){
+  if(!await uiConfirm('把当前所有「每天重置 / 每周重置」的任务当作已经过了一个周期：\n· 已完成的会恢复成未完成（积分记录保留）\n· 收起的任务会重新出现在列表里\n\n这只是测试，不会改动你的真实日期。',{title:'测试：模拟跨天/跨周',ok:'模拟'}))return;
+  S.tasks.forEach(t=>{
+    if(t.repeat==='day')t.pk='2000-01-01';        // 故意写成过期周期，触发与真实跨天完全相同的重置逻辑
+    else if(t.repeat==='week')t.pk='2000-01-03';
+  });
+  save();renderAll();
+  uiAlert('已模拟跨天 ✅\n重复任务已恢复未完成，现在可以再完成一次验证（历史积分不会丢）。',{title:'完成'});
+};
+window.toggleMgr=function(){
+  const m=$('#catMgr');
+  m.style.display=m.style.display==='none'?'block':'none';
+  if(m.style.display==='block')$('#newCat').focus();
+};
+window.addCat=function(){
+  const i=$('#newCat'),n=i.value.trim();
+  if(!n)return uiAlert('请先在上面填写新分类的名称，例如「阅读」。',{title:'还没填名称'});
+  if(!S.cats.includes(n))S.cats.push(n);
+  i.value='';save();renderAll();$('#tCat').value=n;
+};
+window.delCat=async function(c){
+  if(S.cats.length<=1)return uiAlert('至少要保留一个分类，不能删除最后一个。',{title:'无法删除'});
+  const to=S.cats.find(x=>x!==c),n=S.tasks.filter(t=>(t.cat||'默认')===c).length;
+  const msg=`分类「${c}」将被删除。`+(n?`\n该分类下 ${n} 个任务会移到「${to}」。`:'')+'\n已完成任务的历史积分不受影响。';
+  if(!await uiConfirm(msg,{title:'删除分类',ok:'删除',danger:true}))return;
+  S.cats=S.cats.filter(x=>x!==c);
+  S.tasks.forEach(t=>{if((t.cat||'默认')===c)t.cat=to});
+  S.earn.forEach(e=>{if(e.cat===c)e.cat=to});
+  if(S.filter===c)S.filter='全部';
+  save();renderAll();
+};
+$('#tRep').onchange=updHint;
+window.expJson=function(){
+  const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='任务积分备份-'+dayKey(Date.now())+'.json';
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+};
+window.impJson=function(inp){
+  const f=inp.files&&inp.files[0]; if(!f)return;
+  const r=new FileReader();
+  r.onload=async()=>{
+    try{
+      const d=JSON.parse(String(r.result));
+      if(!d||typeof d!=='object'||!Array.isArray(d.tasks)||!Array.isArray(d.rewards))throw new Error('bad');
+      const ok=await uiConfirm(
+        `导入会覆盖当前全部数据：\n现在是 ${S.tasks.length} 个任务、${S.earn.length} 条积分记录、${S.rewards.length} 个奖励\n备份文件里是 ${d.tasks.length} 个任务、${(d.earn||[]).length} 条积分记录`,
+        {title:'导入备份',ok:'覆盖导入',danger:true});
+      if(!ok){inp.value='';return}
+      S=Object.assign({},DEF,d);
+      if(!Array.isArray(S.earn))S.earn=[];
+      if(!Array.isArray(S.cats)||!S.cats.length)S.cats=DEF.cats.slice();
+      S.mig=3; save(); renderAll();
+      uiAlert('导入成功 ✅\n数据已替换为备份里的内容。',{title:'完成'});
+    }catch(e){ uiAlert('文件格式不对，导入失败。\n请选择本应用导出的 .json 备份文件。',{title:'导入失败'}) }
+    inp.value='';
+  };
+  r.readAsText(f);
+};
+
+/* ---- 主题 + 加到主屏(PWA) ---- */
+function curTheme(){
+  return S.theme||((window.matchMedia&&matchMedia('(prefers-color-scheme: light)').matches)?'light':'dark');
+}
+function applyTheme(){
+  const t=curTheme();
+  document.body.classList.toggle('light',t==='light');
+  const b=$('#themeBtn'); if(b)b.textContent=t==='light'?'🌙 深色':'☀️ 浅色';
+  const m=document.querySelector('meta[name="theme-color"]');
+  if(m&&m.setAttribute)m.setAttribute('content',t==='light'?'#f4f6fa':'#0f1218');
+}
+window.toggleTheme=function(){S.theme=curTheme()==='light'?'dark':'light';save();applyTheme()};
+(function pwa(){
+  try{
+    const c=document.createElement('canvas');c.width=c.height=180;
+    const x=c.getContext('2d');
+    x.fillStyle='#4c8dff';x.fillRect(0,0,180,180);
+    x.font='110px serif';x.textAlign='center';x.textBaseline='middle';x.fillText('📋',90,100);
+    const icon=c.toDataURL('image/png');
+    window.__icon=icon;
+    const al=document.createElement('link');al.rel='apple-touch-icon';al.href=icon;
+    document.head.appendChild(al);
+    const mf={name:'任务积分清单',short_name:'任务积分',start_url:'.',scope:'.',display:'standalone',
+      background_color:'#0f1218',theme_color:'#0f1218',
+      icons:[{src:icon,sizes:'180x180',type:'image/png',purpose:'any'}]};
+    const l=document.createElement('link');l.rel='manifest';
+    l.href=URL.createObjectURL(new Blob([JSON.stringify(mf)],{type:'application/manifest+json'}));
+    document.head.appendChild(l);
+  }catch(e){}
+  if(typeof location!=='undefined'&&location.protocol.indexOf('http')===0&&'serviceWorker' in navigator)
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+})();
+
+$('#rPeriod').onchange=e=>{$('#rLimit').disabled=e.target.value==='none'};
+$('#tf').onsubmit=e=>{
+  e.preventDefault();
+  const title=$('#tTitle').value.trim(); if(!title)return;
+  const rep=$('#tRep').value;
+  let due=null,dueT=null,dueW=null;
+  if(rep==='none'){ if($('#tDue').value) due=new Date($('#tDue').value).getTime() }
+  else { dueT=$('#tTime').value||null; if(rep==='week') dueW=+$('#tWeek').value }
+  const t={id:uid(),title,cat:$('#tCat').value||'默认',pri:+$('#tPri').value,
+    pts:Math.max(0,+$('#tPts').value||0),done:false,doneAt:null,eid:null,repeat:rep,due,dueT,dueW};
+  if(rep!=='none')t.pk=pkOf(t);
+  S.tasks.push(t);
+  save();
+  const c=$('#tCat').value;e.target.reset();$('#tCat').value=c;$('#tPri').value='2';$('#tPts').value=5;$('#rLimit').disabled=true;
+  renderAll();$('#tTitle').focus();
+};
+$('#rf').onsubmit=e=>{
+  e.preventDefault();
+  const name=$('#rName').value.trim(),cost=Math.max(1,+$('#rCost').value||1);
+  if(!name)return;
+  const period=$('#rPeriod').value,limit=Math.max(1,+$('#rLimit').value||1);
+  S.rewards.push({id:uid(),name,cost,period,limit});
+  save();e.target.reset();$('#rCost').value=20;$('#rLimit').value=1;$('#rLimit').disabled=true;renderAll();$('#rName').focus();
+};
+$('#goal').onchange=e=>{S.goal=Math.max(0,+e.target.value||0);save();renderAll()};
+$('#wgoal').onchange=e=>{S.weekGoal=Math.max(0,+e.target.value||0);save();renderAll()};
+
+renderAll();
+applyTheme();
+bindNotifyUi();
+renderNotify();
+setTimeout(showDaily,600);          // 每天第一次打开：今日提醒弹窗
+notifLoop();                        // 启动时先查一次（可能有快到截止的任务）
+setInterval(notifLoop,30000);       // 每 30 秒检查每日提醒 / 截止提醒
+let lastDay=dayKey(Date.now());
+setInterval(()=>{const d=dayKey(Date.now());if(d!==lastDay){lastDay=d;renderAll()}tick()},1000);
+
+/* 手机/后台标签页会把定时器冻结，所以每次页面重新可见、获得焦点、从缓存恢复时都补一次跨天检查 */
+function recheckDay(){
+  const d=dayKey(Date.now());
+  if(d!==lastDay)lastDay=d;
+  rollRepeat();      // 幂等：只有周期真的变了才会重置
+  renderAll();
+}
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden)recheckDay() });
+window.addEventListener('focus',recheckDay);
+window.addEventListener('pageshow',recheckDay);
+window.addEventListener('online',recheckDay);
+</script>
+</body>
+</html>
