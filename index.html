@@ -219,6 +219,7 @@ button.dan{background:var(--bad);border-color:var(--bad);color:#fff;font-weight:
     <div class="row" id="catList"></div>
   </div>
   <div class="row" id="filters" style="margin-bottom:6px"></div>
+  <div class="dim" id="doneBar" style="display:none;margin:2px 0 6px"></div>
   <ul id="tl"></ul>
 </div>
 
@@ -249,6 +250,7 @@ button.dan{background:var(--bad);border-color:var(--bad);color:#fff;font-weight:
   <div class="row" style="margin-top:8px">
     <button class="pri" onclick="expJson()">导出 JSON 备份</button>
     <button onclick="document.getElementById('impFile').click()">导入 JSON 备份</button>
+    <button onclick="simulateNextDay()" title="验证每日/每周任务的重置是否正常">测试：模拟跨天</button>
     <input id="impFile" type="file" accept=".json,application/json" hidden onchange="impJson(this)">
     <span class="dim">数据只保存在这个浏览器里：换电脑、换浏览器、清缓存之前请先导出；导入会覆盖当前数据。</span>
   </div>
@@ -362,8 +364,20 @@ function renderCatSelect(){
 }
 function renderTasks(){
   const f=S.filter||'全部';
-  const arr=S.tasks.filter(t=>f==='全部'||(t.cat||'默认')===f)
+  const isRep=t=>t.repeat==='day'||t.repeat==='week';
+  const inCat=t=>f==='全部'||(t.cat||'默认')===f;
+  // 重复任务本周期完成后自动收起（下个周期重置时再出现）
+  const tucked=S.tasks.filter(t=>inCat(t)&&isRep(t)&&t.done);
+  const arr=S.tasks.filter(t=>inCat(t)&&!(isRep(t)&&t.done&&!S.showDone))
     .sort((a,b)=>(a.done-b.done)||(a.pri-b.pri)||((dueOf(a)??9e15)-(dueOf(b)??9e15)));
+  const bar=$('#doneBar');
+  if(tucked.length){
+    const allDay=tucked.every(t=>t.repeat==='day'), allWeek=tucked.every(t=>t.repeat==='week');
+    const when=allDay?'明天 00:00':allWeek?'下周一 00:00':'到点';
+    bar.style.display='';
+    bar.innerHTML=`✅ 本周期已完成 <b>${tucked.length}</b> 项重复任务，已从列表收起（${when} 自动重新出现）
+      <button class="mini" onclick="toggleDone()">${S.showDone?'收起':'展开/撤销'}</button>`;
+  }else{ bar.style.display='none'; bar.innerHTML=''; }
   $('#filters').innerHTML=['全部',...S.cats].map(c=>`<button class="chip ${c===f?'on':''}" onclick="setFilter('${esc(c)}')">${esc(c)}</button>`).join('');
   $('#tl').innerHTML=arr.length?arr.map(t=>{
     const due=dueOf(t);
@@ -623,6 +637,16 @@ window.redeem=async function(id){
 };
 window.unspend=function(id){S.spent=S.spent.filter(x=>x.id!==id);save();renderAll()};
 window.setFilter=function(c){S.filter=c;save();renderTasks()};
+window.toggleDone=function(){S.showDone=!S.showDone;save();renderTasks()};
+window.simulateNextDay=async function(){
+  if(!await uiConfirm('把当前所有「每天重置 / 每周重置」的任务当作已经过了一个周期：\n· 已完成的会恢复成未完成（积分记录保留）\n· 收起的任务会重新出现在列表里\n\n这只是测试，不会改动你的真实日期。',{title:'测试：模拟跨天/跨周',ok:'模拟'}))return;
+  S.tasks.forEach(t=>{
+    if(t.repeat==='day')t.pk='2000-01-01';        // 故意写成过期周期，触发与真实跨天完全相同的重置逻辑
+    else if(t.repeat==='week')t.pk='2000-01-03';
+  });
+  save();renderAll();
+  uiAlert('已模拟跨天 ✅\n重复任务已恢复未完成，现在可以再完成一次验证（历史积分不会丢）。',{title:'完成'});
+};
 window.toggleMgr=function(){
   const m=$('#catMgr');
   m.style.display=m.style.display==='none'?'block':'none';
@@ -745,6 +769,18 @@ notifLoop();                        // 启动时先查一次（可能有快到�
 setInterval(notifLoop,30000);       // 每 30 秒检查每日提醒 / 截止提醒
 let lastDay=dayKey(Date.now());
 setInterval(()=>{const d=dayKey(Date.now());if(d!==lastDay){lastDay=d;renderAll()}tick()},1000);
+
+/* 手机/后台标签页会把定时器冻结，所以每次页面重新可见、获得焦点、从缓存恢复时都补一次跨天检查 */
+function recheckDay(){
+  const d=dayKey(Date.now());
+  if(d!==lastDay)lastDay=d;
+  rollRepeat();      // 幂等：只有周期真的变了才会重置
+  renderAll();
+}
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden)recheckDay() });
+window.addEventListener('focus',recheckDay);
+window.addEventListener('pageshow',recheckDay);
+window.addEventListener('online',recheckDay);
 </script>
 </body>
 </html>
